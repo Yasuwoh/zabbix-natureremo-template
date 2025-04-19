@@ -1,0 +1,320 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 7df96b18c230490a9a0a9e2307226338
+      name: Templates
+  templates:
+    - uuid: ba41ed95b8814ce1bd937fbe31e4dbad
+      template: 'Nature Remo Cloud API'
+      name: 'Nature Remo Cloud API'
+      description: |
+        Nature Remo Cloud APIを使ってNature Remoのセンサーデータを蓄積します。
+        また、取得した温度、湿度および人感センサーの情報を使用して、健康管理およびセキュリティに有用なトリガーを発出します。
+      groups:
+        - name: Templates
+      items:
+        - uuid: 447ebd2c2a014c22aeba87ae2199f95d
+          name: 'Get Data'
+          type: HTTP_AGENT
+          key: natureremo.get.data
+          delay: 5m
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          url: '{$NATUREREMO.API_DEVICES}'
+          http_proxy: '{$NATUREREMO.API_HTTPPROXY}'
+          headers:
+            - name: authorization
+              value: 'Bearer {$NATUREREMO.API_TOKEN}'
+          output_format: JSON
+      discovery_rules:
+        - uuid: 8c0e0b7964134891a79f1c8ae09cd9dd
+          name: 'Devices discovery'
+          type: DEPENDENT
+          key: natureremo.devices.discovery
+          delay: '0'
+          item_prototypes:
+            - uuid: 794a2b4056574888a25e8643311bba36
+              name: '{#NAME} 不快指数'
+              type: CALCULATED
+              key: 'natureremo.device.di[{#SERIAL}]'
+              value_type: FLOAT
+              params: |
+                0.81 * last(//natureremo.device.temperature.val[{#SERIAL}])
+                + 0.01 * last(//natureremo.device.humidity.val[{#SERIAL}])
+                  * (0.99 * last(//natureremo.device.temperature.val[{#SERIAL}]) - 14.3)
+                + 46.3
+              trigger_prototypes:
+                - uuid: 935027fd713649e6ad469c8419ce06fd
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=70'
+                  name: '{#NAME} 不快感を持つ人が出始める'
+                  priority: INFO
+                  dependencies:
+                    - name: '{#NAME} 半数以上が不快に感じる'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=75'
+                - uuid: a565e026d95345f0839238fbf5b6b282
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=80'
+                  name: '{#NAME} 全員が不快に感じる'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#NAME} 暑くてたまらない'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=85'
+                - uuid: e417d3bf4d344bcfb783699ed510ea96
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=75'
+                  name: '{#NAME} 半数以上が不快に感じる'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#NAME} 全員が不快に感じる'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=80'
+                - uuid: 8a2a332ce6fb4090ade861e7639e49c2
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.di[{#SERIAL}])>=85'
+                  name: '{#NAME} 暑くてたまらない'
+                  priority: AVERAGE
+            - uuid: 7bbf851c4e04448f9862de8772cf0bd4
+              name: '{#NAME} 湿度更新時刻'
+              type: DEPENDENT
+              key: 'natureremo.device.humidity.created_at[{#SERIAL}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.hu.created_at.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: natureremo.get.data
+            - uuid: 0136d696eeca4852afeab3c18ece87da
+              name: '{#NAME} 湿度'
+              type: DEPENDENT
+              key: 'natureremo.device.humidity.val[{#SERIAL}]'
+              delay: '0'
+              value_type: FLOAT
+              units: '%'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.hu.val.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: natureremo.get.data
+              trigger_prototypes:
+                - uuid: 613bf3a6815b4212bec8b54d894f8e19
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=65'
+                  name: '{#NAME} じめじめ'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#NAME} 高湿度'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=80'
+                - uuid: e37a4811cd224bbab5c10301f774af69
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])<=40'
+                  name: '{#NAME} やや乾燥'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#NAME} 非常に乾燥'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])<=20'
+                - uuid: 9e1fd594546646009d1b3ded95f75c70
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])<=20'
+                  name: '{#NAME} 非常に乾燥'
+                  priority: AVERAGE
+                - uuid: ba6d0be8c69f480d915ce5e731f042dc
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=80'
+                  name: '{#NAME} 高湿度'
+                  priority: AVERAGE
+            - uuid: 08bf9362e3df4097b84e33a4931330c9
+              name: '{#NAME} 照度更新時刻'
+              type: DEPENDENT
+              key: 'natureremo.device.illumination.created_at[{#SERIAL}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.il.created_at.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: natureremo.get.data
+            - uuid: bdefa65038d3472db3bc7d3b37c86420
+              name: '{#NAME} 照度'
+              type: DEPENDENT
+              key: 'natureremo.device.illumination.val[{#SERIAL}]'
+              delay: '0'
+              value_type: FLOAT
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.il.val.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: natureremo.get.data
+            - uuid: 6a6ae4e31dcd4979a8e87c392d5119e2
+              name: '{#NAME} 人感更新時刻'
+              type: DEPENDENT
+              key: 'natureremo.device.motion.created_at[{#SERIAL}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.mo.created_at.first()'
+                  error_handler: DISCARD_VALUE
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.data
+              trigger_prototypes:
+                - uuid: 0da28a3d0c77423e8a8b7cdc05d55909
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.motion.created_at[{#SERIAL}],#1)<>last(/Nature Remo Cloud API/natureremo.device.motion.created_at[{#SERIAL}],#2)'
+                  recovery_mode: NONE
+                  name: '{#NAME} 人感センサーで感知しました'
+                  priority: INFO
+                  manual_close: 'YES'
+            - uuid: f21fbda694e84dd3a227ce151fe24a57
+              name: '{#NAME} 人感'
+              type: DEPENDENT
+              key: 'natureremo.device.motion.val[{#SERIAL}]'
+              delay: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.mo.val.first()'
+                  error_handler: DISCARD_VALUE
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.data
+            - uuid: 353a9b2e67ff4ca69822bd4ccb9426f5
+              name: '{#NAME} 温度更新時刻'
+              type: DEPENDENT
+              key: 'natureremo.device.temperature.created_at[{#SERIAL}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.te.created_at.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: natureremo.get.data
+            - uuid: fa9adbfdeb884b9aac21e30495960c6f
+              name: '{#NAME} 温度'
+              type: DEPENDENT
+              key: 'natureremo.device.temperature.val[{#SERIAL}]'
+              delay: '0'
+              value_type: FLOAT
+              units: ℃
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.te.val.first()'
+                  error_handler: DISCARD_VALUE
+              master_item:
+                key: natureremo.get.data
+              trigger_prototypes:
+                - uuid: 3d44a6d52df54c2fbd86492adcfe4950
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])<=10'
+                  name: '{#NAME} 低温'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#NAME} 凍える寒さ'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])<=5'
+                - uuid: 1f69ccc5ff994c188f68295743f43256
+                  expression: 'min(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}],24)<0'
+                  name: '{#NAME} 冬日'
+                  priority: INFO
+                  dependencies:
+                    - name: '{#NAME} 真冬日'
+                      expression: 'max(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}],24)<0'
+                - uuid: e98edd0258f8483181d2c9a24ee34175
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])<=15'
+                  name: '{#NAME} 冷涼'
+                  priority: INFO
+                  dependencies:
+                    - name: '{#NAME} 低温'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])<=10'
+                - uuid: a906e703383e42109c0f920e8e2f10ee
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])<=5'
+                  name: '{#NAME} 凍える寒さ'
+                  priority: AVERAGE
+                - uuid: f7ab99bd6fb5421fbefdc9021bce8c9a
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=40'
+                  name: '{#NAME} 命に関わる暑さ'
+                  priority: HIGH
+                - uuid: b19c3c62aab846dbb6ca7a1b7ca61b55
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=25'
+                  name: '{#NAME} 夏日'
+                  priority: INFO
+                  dependencies:
+                    - name: '{#NAME} 真夏日'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=30'
+                - uuid: 7abc032041bb43eca749adf2a8c8ae23
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=35'
+                  name: '{#NAME} 猛暑日'
+                  priority: AVERAGE
+                  dependencies:
+                    - name: '{#NAME} 命に関わる暑さ'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=40'
+                - uuid: b6c005db59aa40f7898ecb5c3d2b9166
+                  expression: 'max(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}],24)<0'
+                  name: '{#NAME} 真冬日'
+                  priority: WARNING
+                - uuid: 24a2c808718646cfa0e2475daa8492ee
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=30'
+                  name: '{#NAME} 真夏日'
+                  priority: WARNING
+                  dependencies:
+                    - name: '{#NAME} 猛暑日'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.temperature.val[{#SERIAL}])>=35'
+          graph_prototypes:
+            - uuid: 4aa58e1146ab43558e31095c679d2bbb
+              name: '{#NAME} 不快指数'
+              ymin_type_1: FIXED
+              ymax_type_1: FIXED
+              graph_items:
+                - color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'Nature Remo Cloud API'
+                    key: 'natureremo.device.di[{#SERIAL}]'
+            - uuid: cad805517057413385af36d09586e0e2
+              name: '{#NAME} 温度'
+              graph_items:
+                - color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'Nature Remo Cloud API'
+                    key: 'natureremo.device.temperature.val[{#SERIAL}]'
+            - uuid: 49b15ac7a38d4b48977f9e2579b875c2
+              name: '{#NAME} 湿度'
+              graph_items:
+                - color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'Nature Remo Cloud API'
+                    key: 'natureremo.device.humidity.val[{#SERIAL}]'
+          master_item:
+            key: natureremo.get.data
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#MAC_ADDRESS}'
+              path: $.mac_address
+            - lld_macro: '{#NAME}'
+              path: $.name
+            - lld_macro: '{#SERIAL}'
+              path: $.serial_number
+      macros:
+        - macro: '{$NATUREREMO.API_DEVICES}'
+          value: 'https://api.nature.global/1/devices'
+        - macro: '{$NATUREREMO.API_HTTPPROXY}'
+        - macro: '{$NATUREREMO.API_TOKEN}'
+          type: SECRET_TEXT
