@@ -10,15 +10,36 @@ zabbix_export:
       description: |
         Nature Remo Cloud APIを使ってNature Remoのセンサーデータを蓄積します。
         また、取得した温度、湿度および人感センサーの情報を使用して、健康管理およびセキュリティに有用なトリガーを発出します。
+      vendor:
+        name: Yasuwo
+        version: '0.1'
       groups:
         - name: Templates
       items:
+        - uuid: c0477a55235846c7a42fb9ea8654dbb8
+          name: 'Get Appliances Data'
+          type: HTTP_AGENT
+          key: natureremo.get.appliances
+          delay: 5m
+          history: '0'
+          value_type: TEXT
+          trends: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.body
+          url: '{$NATUREREMO.API_APPLIANCES}'
+          http_proxy: '{$NATUREREMO.API_HTTPPROXY}'
+          headers:
+            - name: authorization
+              value: 'Bearer {$NATUREREMO.API_TOKEN}'
+          output_format: JSON
         - uuid: 447ebd2c2a014c22aeba87ae2199f95d
-          name: 'Get Data'
+          name: 'Get Devices Data'
           type: HTTP_AGENT
           key: natureremo.get.data
           delay: 5m
-          history: 1h
+          history: '0'
           value_type: TEXT
           trends: '0'
           preprocessing:
@@ -32,6 +53,261 @@ zabbix_export:
               value: 'Bearer {$NATUREREMO.API_TOKEN}'
           output_format: JSON
       discovery_rules:
+        - uuid: bcc5ea274c6a4cdd81ffe6a258c04e95
+          name: 'Appliances discovery of AC'
+          type: DEPENDENT
+          key: natureremo.appliances.ac.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#TYPE}'
+                value: AC
+                formulaid: A
+          item_prototypes:
+            - uuid: c1b0eabaef8b4b0e97165de16f26db90
+              name: 'AC {#NICKNAME}: Button'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.button[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.button.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 7af89ef6b38946b8a009f51eb91bb57e
+              name: 'AC {#NICKNAME}: Direction'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.direction[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.dir.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 725d21eae6cc4d299292dadf1e92e72e
+              name: 'AC {#NICKNAME}: Horizontal Air Direction'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.dirh[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.dirh.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 31d23d16a0284a6a92e61c75bd667473
+              name: 'AC {#NICKNAME}: Mode'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.mode[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.mode.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 20e84f0f16544435978ee8f1b9d4ae77
+              name: 'AC {#NICKNAME}: Temperature Unit'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.temp_unit[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.temp_unit.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 1d7db832bcb6403c91cb913b01f3e470
+              name: 'AC {#NICKNAME}: Updated at'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.updated_at[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.updated_at.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 8df2305de668401ba15ce94595dc2a33
+              name: 'AC {#NICKNAME}: Volume'
+              type: DEPENDENT
+              key: 'natureremo.appliance.ac.settings.volume[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].settings.vol.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+          master_item:
+            key: natureremo.get.appliances
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#NICKNAME}'
+              path: $.nickname
+            - lld_macro: '{#TYPE}'
+              path: $.type
+        - uuid: 596e0b0df1d14ce29233496d8fd3eba4
+          name: 'Appliances discovery of IR'
+          type: DEPENDENT
+          key: natureremo.appliances.ir.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#TYPE}'
+                value: IR
+                formulaid: A
+          master_item:
+            key: natureremo.get.appliances
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#NICKNAME}'
+              path: $.nickname
+            - lld_macro: '{#TYPE}'
+              path: $.type
+        - uuid: b7780d2027054dd29441ce99cfda3982
+          name: 'Appliances discovery of LIGHT'
+          type: DEPENDENT
+          key: natureremo.appliances.light.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#TYPE}'
+                value: LIGHT
+                formulaid: A
+          item_prototypes:
+            - uuid: 35ba945fec99433ba8de69ef87cfe32c
+              name: 'LIGHT {#NICKNAME}: Brightness'
+              type: DEPENDENT
+              key: 'natureremo.appliance.light.brightness[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].light.state.brightness.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: eb6e438632544470a0e3c8704de423aa
+              name: 'LIGHT {#NICKNAME}: Last Button'
+              type: DEPENDENT
+              key: 'natureremo.appliance.light.last_button[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].light.state.last_button.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+            - uuid: 1a354c9b51b34b46a047b1f27768883f
+              name: 'LIGHT {#NICKNAME}: Power'
+              type: DEPENDENT
+              key: 'natureremo.appliance.light.power[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].light.state.power.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+          master_item:
+            key: natureremo.get.appliances
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#NICKNAME}'
+              path: $.nickname
+            - lld_macro: '{#TYPE}'
+              path: $.type
+        - uuid: 63376e1b6d454c40b0d4d827c10c8af9
+          name: 'Appliances discovery of TV'
+          type: DEPENDENT
+          key: natureremo.appliances.tv.discovery
+          delay: '0'
+          filter:
+            conditions:
+              - macro: '{#TYPE}'
+                value: TV
+                formulaid: A
+          item_prototypes:
+            - uuid: 9078bf1e84b2473f847fab992eb72e84
+              name: 'TV {#NICKNAME}: Input'
+              type: DEPENDENT
+              key: 'natureremo.appliance.tv.input[{#ID}]'
+              delay: '0'
+              value_type: CHAR
+              trends: '0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$[?(@.id==''{#ID}'')].tv.state.input.first()'
+                - type: DISCARD_UNCHANGED
+                  parameters:
+                    - ''
+              master_item:
+                key: natureremo.get.appliances
+          master_item:
+            key: natureremo.get.appliances
+          lld_macro_paths:
+            - lld_macro: '{#ID}'
+              path: $.id
+            - lld_macro: '{#NICKNAME}'
+              path: $.nickname
+            - lld_macro: '{#TYPE}'
+              path: $.type
         - uuid: 8c0e0b7964134891a79f1c8ae09cd9dd
           name: 'Devices discovery'
           type: DEPENDENT
@@ -104,12 +380,12 @@ zabbix_export:
                 key: natureremo.get.data
               trigger_prototypes:
                 - uuid: 613bf3a6815b4212bec8b54d894f8e19
-                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=65'
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=80'
                   name: '{#NAME} じめじめ'
                   priority: WARNING
                   dependencies:
                     - name: '{#NAME} 高湿度'
-                      expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=80'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=90'
                 - uuid: e37a4811cd224bbab5c10301f774af69
                   expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])<=40'
                   name: '{#NAME} やや乾燥'
@@ -117,12 +393,19 @@ zabbix_export:
                   dependencies:
                     - name: '{#NAME} 非常に乾燥'
                       expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])<=20'
+                - uuid: e4b69aa254314a61a8770e263b97b1e5
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=65'
+                  name: '{#NAME} 湿度高め'
+                  priority: INFO
+                  dependencies:
+                    - name: '{#NAME} じめじめ'
+                      expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=80'
                 - uuid: 9e1fd594546646009d1b3ded95f75c70
                   expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])<=20'
                   name: '{#NAME} 非常に乾燥'
                   priority: AVERAGE
                 - uuid: ba6d0be8c69f480d915ce5e731f042dc
-                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=80'
+                  expression: 'last(/Nature Remo Cloud API/natureremo.device.humidity.val[{#SERIAL}])>=90'
                   name: '{#NAME} 高湿度'
                   priority: AVERAGE
             - uuid: 08bf9362e3df4097b84e33a4931330c9
@@ -164,9 +447,9 @@ zabbix_export:
                   parameters:
                     - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.mo.created_at.first()'
                   error_handler: DISCARD_VALUE
-                - type: DISCARD_UNCHANGED
+                - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
-                    - ''
+                    - '3600'
               master_item:
                 key: natureremo.get.data
               trigger_prototypes:
@@ -175,6 +458,7 @@ zabbix_export:
                   recovery_mode: NONE
                   name: '{#NAME} 人感センサーで感知しました'
                   priority: INFO
+                  type: MULTIPLE
                   manual_close: 'YES'
             - uuid: f21fbda694e84dd3a227ce151fe24a57
               name: '{#NAME} 人感'
@@ -186,9 +470,9 @@ zabbix_export:
                   parameters:
                     - '$[?(@.serial_number==''{#SERIAL}'')].newest_events.mo.val.first()'
                   error_handler: DISCARD_VALUE
-                - type: DISCARD_UNCHANGED
+                - type: DISCARD_UNCHANGED_HEARTBEAT
                   parameters:
-                    - ''
+                    - '3600'
               master_item:
                 key: natureremo.get.data
             - uuid: 353a9b2e67ff4ca69822bd4ccb9426f5
@@ -313,6 +597,8 @@ zabbix_export:
             - lld_macro: '{#SERIAL}'
               path: $.serial_number
       macros:
+        - macro: '{$NATUREREMO.API_APPLIANCES}'
+          value: 'https://api.nature.global/1/appliances'
         - macro: '{$NATUREREMO.API_DEVICES}'
           value: 'https://api.nature.global/1/devices'
         - macro: '{$NATUREREMO.API_HTTPPROXY}'
